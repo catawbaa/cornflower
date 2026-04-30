@@ -16,6 +16,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Input.Events;
+using osu.Framework.Platform;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
 using osu.Game.Graphics;
@@ -25,6 +26,7 @@ using osu.Game.Rulesets.Edit.Tools;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Objects.Types;
+using osu.Game.Rulesets.Osu.Edit.SliderGallery;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.UI;
 using osu.Game.Rulesets.UI;
@@ -81,6 +83,18 @@ namespace osu.Game.Rulesets.Osu.Edit
         [Cached]
         protected readonly FreehandSliderToolboxGroup FreehandSliderToolboxGroup = new FreehandSliderToolboxGroup();
 
+        private SliderGalleryStorage sliderGalleryStorage = null!;
+
+        protected override IReadOnlyDependencyContainer CreateChildDependencies(IReadOnlyDependencyContainer parent)
+        {
+            var dependencies = new DependencyContainer(base.CreateChildDependencies(parent));
+
+            sliderGalleryStorage = new SliderGalleryStorage(parent.Get<Storage>());
+            dependencies.CacheAs(sliderGalleryStorage);
+
+            return dependencies;
+        }
+
         [BackgroundDependencyLoader]
         private void load()
         {
@@ -122,6 +136,11 @@ namespace osu.Game.Rulesets.Osu.Edit
                     FreehandSliderToolboxGroup
                 }
             );
+
+            RightToolbox.Add(new EditorToolboxGroup("gallery")
+            {
+                Child = new SliderGalleryPanel(),
+            });
         }
 
         private void updatePositionSnapGrid(ValueChangedEvent<PositionSnapGridType> obj)

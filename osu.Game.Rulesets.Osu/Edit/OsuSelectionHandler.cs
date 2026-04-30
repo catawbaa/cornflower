@@ -15,6 +15,7 @@ using osu.Game.Rulesets.Edit;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Rulesets.Osu.Beatmaps;
+using osu.Game.Rulesets.Osu.Edit.SliderGallery;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.UI;
 using osu.Game.Screens.Edit.Compose.Components;
@@ -28,6 +29,9 @@ namespace osu.Game.Rulesets.Osu.Edit
     {
         [Resolved]
         private OsuGridToolboxGroup gridToolbox { get; set; } = null!;
+
+        [Resolved]
+        private SliderGalleryStorage sliderGalleryStorage { get; set; } = null!;
 
         protected override void OnSelectionChanged()
         {
@@ -378,6 +382,61 @@ namespace osu.Game.Rulesets.Osu.Edit
 
             if (canMerge(selectedMergeableObjects))
                 yield return new OsuMenuItem("Merge selection", MenuItemType.Destructive, mergeSelection);
+
+            // Show "Add to Slider Gallery" when exactly one slider is selected.
+            if (SelectedItems.Count == 1 && SelectedItems.OfType<Slider>().Any())
+            {
+                var folders = sliderGalleryStorage.GetFolders();
+
+                if (folders.Count > 0)
+                {
+                    // When folders exist, show a submenu with folder options.
+                    yield return new OsuMenuItem("Add to Slider Gallery")
+                    {
+                        Items = getSliderGallerySubmenuItems(folders).ToArray(),
+                    };
+                }
+                else
+                {
+                    // No folders — just add directly to root.
+                    yield return new OsuMenuItem("Add to Slider Gallery", MenuItemType.Standard, () => addSliderToGallery(null));
+                }
+            }
+        }
+
+        private IEnumerable<MenuItem> getSliderGallerySubmenuItems(IReadOnlyList<SliderGalleryFolder> folders)
+        {
+            foreach (var folder in folders)
+            {
+                var capturedFolder = folder;
+                yield return new OsuMenuItem(folder.Name, MenuItemType.Standard, () => addSliderToGallery(capturedFolder.Id));
+            }
+
+            yield return new OsuMenuItemSpacer();
+            yield return new OsuMenuItem("+ New Folder...", MenuItemType.Highlighted, () =>
+            {
+                // Create a new folder with a default name and add the slider to it.
+                var slider = SelectedItems.OfType<Slider>().SingleOrDefault();
+
+                if (slider == null)
+                    return;
+
+                string folderName = $"Folder {slider.StartTime:F0}ms";
+                var folder = sliderGalleryStorage.AddFolder(folderName);
+                string name = $"Slider {slider.StartTime:F0}ms";
+                sliderGalleryStorage.Add(name, slider, folder.Id);
+            });
+        }
+
+        private void addSliderToGallery(System.Guid? folderId)
+        {
+            var slider = SelectedItems.OfType<Slider>().SingleOrDefault();
+
+            if (slider == null)
+                return;
+
+            string name = $"Slider {slider.StartTime:F0}ms";
+            sliderGalleryStorage.Add(name, slider, folderId);
         }
 
         private bool canMerge(IReadOnlyList<OsuHitObject> objects) =>
