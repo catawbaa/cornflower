@@ -3,6 +3,7 @@
 
 using osu.Framework.Extensions.Color4Extensions;
 using osu.Game.Rulesets.Osu.Skinning.Argon;
+using osu.Game.Rulesets.Osu.Skinning.Default;
 using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
