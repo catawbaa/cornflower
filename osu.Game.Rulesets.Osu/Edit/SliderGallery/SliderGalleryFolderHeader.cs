@@ -27,7 +27,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
     /// A collapsible header for a folder in the slider gallery panel.
     /// Displays the folder name, entry count, and a chevron indicator.
     /// </summary>
-    public partial class SliderGalleryFolderHeader : CompositeDrawable, IHasContextMenu, IHasPopover
+    public partial class SliderGalleryFolderHeader : CompositeDrawable, IHasContextMenu
     {
         public Action<SliderGalleryFolder>? OnRequestDelete;
         public Action<SliderGalleryFolder, string>? OnRequestRename;
@@ -66,6 +66,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         private Color4 hoverColour;
         private Color4 dropTargetColour;
         private TruncatingSpriteText folderNameText = null!;
+        private OsuTextBox folderTextBox = null!;
 
         [Resolved(canBeNull: true)]
         private IExpandingContainer? expandingContainer { get; set; }
@@ -82,9 +83,6 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         {
             RelativeSizeAxes = Axes.X;
             Height = 28;
-            CornerRadius = 4;
-            Masking = true;
-            Margin = new MarginPadding { Top = 4 };
 
             idleColour = colourProvider.Background3;
             hoverColour = colourProvider.Background2;
@@ -139,13 +137,35 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
                                     },
                                 }
                             },
-                            folderNameText = new TruncatingSpriteText
+                            new Container
                             {
                                 Anchor = Anchor.CentreLeft,
                                 Origin = Anchor.CentreLeft,
-                                Text = folder.Name,
-                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
                                 RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Padding = new MarginPadding { Right = 10 },
+                                Children = new Drawable[]
+                                {
+                                    folderNameText = new TruncatingSpriteText
+                                    {
+                                        Anchor = Anchor.CentreLeft,
+                                        Origin = Anchor.CentreLeft,
+                                        Text = folder.Name,
+                                        Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                        RelativeSizeAxes = Axes.X,
+                                    },
+                                    folderTextBox = new FolderNameTextBox
+                                    {
+                                        Anchor = Anchor.CentreLeft,
+                                        Origin = Anchor.CentreLeft,
+                                        Text = folder.Name,
+                                        RelativeSizeAxes = Axes.X,
+                                        Height = 20,
+                                        Alpha = 0,
+                                        CommitOnFocusLost = true,
+                                        Margin = new MarginPadding { Left = -4 },
+                                    }
+                                }
                             },
                             new CircularContainer
                             {
@@ -183,8 +203,24 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
 
             expandingContainer?.Expanded.BindValueChanged(containerExpanded =>
             {
-                folderNameText.FadeTo(containerExpanded.NewValue ? 1 : 0, 200, Easing.OutQuint);
+                if (folderTextBox.Alpha == 0)
+                    folderNameText.FadeTo(containerExpanded.NewValue ? 1 : 0, 200, Easing.OutQuint);
             }, true);
+
+            folderTextBox.OnCommit += (sender, newText) =>
+            {
+                folderTextBox.Alpha = 0;
+                folderNameText.ClearTransforms();
+                folderNameText.Alpha = 1;
+
+                if (string.IsNullOrWhiteSpace(sender.Text) || sender.Text == folder.Name)
+                {
+                    folderNameText.Text = folder.Name;
+                    return;
+                }
+
+                OnRequestRename?.Invoke(folder, sender.Text);
+            };
         }
 
         protected override bool OnHover(HoverEvent e)
@@ -204,15 +240,55 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             return true;
         }
 
-        public MenuItem[] ContextMenuItems => new MenuItem[]
+        public MenuItem[] ContextMenuItems
         {
-            new OsuMenuItem("Rename", MenuItemType.Standard, () => this.ShowPopover()),
-            new OsuMenuItem("Delete folder", MenuItemType.Destructive, () => OnRequestDelete?.Invoke(folder)),
-        };
+            get
+            {
+                if (folder.Id == Guid.Empty)
+                    return Array.Empty<MenuItem>();
 
-        public Popover GetPopover() => new CreateFolderPopover("Rename folder", folder.Name)
+                return new MenuItem[]
+                {
+                    new OsuMenuItem("Rename", MenuItemType.Standard, BeginEditing),
+                    new OsuMenuItem("Delete folder", MenuItemType.Destructive, () => OnRequestDelete?.Invoke(folder)),
+                };
+            }
+        }
+
+        public void BeginEditing()
         {
-            OnCommit = newName => OnRequestRename?.Invoke(folder, newName),
-        };
+            folderNameText.ClearTransforms();
+            folderNameText.Alpha = 0;
+            folderTextBox.Alpha = 1;
+            folderTextBox.Text = folder.Name;
+            GetContainingFocusManager()?.ChangeFocus(folderTextBox);
+            folderTextBox.SelectAll();
+        }
+
+        private partial class FolderNameTextBox : OsuTextBox
+        {
+            protected override float LeftRightPadding => 4;
+
+            [BackgroundDependencyLoader]
+            private void load()
+            {
+                BackgroundUnfocused = Color4.Transparent;
+                BackgroundFocused = Color4.Transparent;
+                BackgroundCommit = Color4.Transparent;
+                BorderThickness = 0;
+            }
+
+            protected override void OnFocus(FocusEvent e)
+            {
+                base.OnFocus(e);
+                BorderThickness = 0;
+            }
+
+            protected override Drawable GetDrawableCharacter(char c) => new OsuSpriteText
+            {
+                Text = c.ToString(),
+                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold)
+            };
+        }
     }
 }

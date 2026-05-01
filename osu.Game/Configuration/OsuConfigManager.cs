@@ -230,7 +230,6 @@ namespace osu.Game.Configuration
             SetDefault(OsuSetting.EditorTimelineShowTicks, true);
 
             SetDefault(OsuSetting.EditorContractSidebars, false);
-            SetDefault(OsuSetting.EditorGalleryCompactMode, false);
 
             SetDefault(OsuSetting.AlwaysShowHoldForMenuButton, false);
             SetDefault(OsuSetting.AlwaysRequireHoldingForPause, false);
@@ -512,6 +511,5 @@ namespace osu.Game.Configuration
 
         DashboardSortMode,
         DashboardDisplayStyle,
-        EditorGalleryCompactMode,
     }
 }

@@ -224,7 +224,6 @@ namespace osu.Game.Screens.Edit
         private Bindable<bool> editorTimelineShowBreaks;
         private Bindable<bool> editorTimelineShowTicks;
         private Bindable<bool> editorContractSidebars;
-        private Bindable<bool> editorGalleryCompactMode;
 
         /// <summary>
         /// This controls the opacity of components like the timelines, sidebars, etc.
@@ -339,7 +338,6 @@ namespace osu.Game.Screens.Edit
             editorTimelineShowBreaks = config.GetBindable<bool>(OsuSetting.EditorTimelineShowBreaks);
             editorTimelineShowTicks = config.GetBindable<bool>(OsuSetting.EditorTimelineShowTicks);
             editorContractSidebars = config.GetBindable<bool>(OsuSetting.EditorContractSidebars);
-            editorGalleryCompactMode = config.GetBindable<bool>(OsuSetting.EditorGalleryCompactMode);
 
             // These two settings don't work together. Make them mutually exclusive to let the user know.
             editorAutoSeekOnPlacement.BindValueChanged(enabled =>
@@ -445,17 +443,6 @@ namespace osu.Game.Screens.Edit
                                             new ToggleMenuItem(EditorStrings.ContractSidebars)
                                             {
                                                 State = { BindTarget = editorContractSidebars }
-                                            },
-                                            new OsuMenuItemSpacer(),
-                                            new MenuItem("Gallery")
-                                            {
-                                                Items = new[]
-                                                {
-                                                    new ToggleMenuItem("Compact Mode")
-                                                    {
-                                                        State = { BindTarget = editorGalleryCompactMode }
-                                                    },
-                                                }
                                             },
                                         }
                                     },

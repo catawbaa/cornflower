@@ -35,17 +35,15 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         public Action<SliderGalleryEntry, Guid?>? OnRequestMoveToFolder;
 
         private readonly SliderGalleryEntry entry;
-        private readonly bool compact;
 
         private Box background = null!;
         private Color4 idleColour;
         private Color4 hoverColour;
         private bool isDragging;
 
-        public SliderGalleryEntryCard(SliderGalleryEntry entry, bool compact = false)
+        public SliderGalleryEntryCard(SliderGalleryEntry entry)
         {
             this.entry = entry;
-            this.compact = compact;
         }
 
         [Resolved]
@@ -60,120 +58,43 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             idleColour = colourProvider.Background4;
             hoverColour = colourProvider.Background3;
 
-            if (compact)
-            {
-                // Compact mode: just the slider preview as a square thumbnail.
-                RelativeSizeAxes = Axes.X;
-                Width = 0.33333f;
-                // Add inner padding so items don't visually touch each other in FillFlowContainer.
-                Padding = new MarginPadding(2);
+            // Compact mode: just the slider preview as a square thumbnail.
+            RelativeSizeAxes = Axes.X;
+            Width = 0.33333f;
+            // Add inner padding so items don't visually touch each other in FillFlowContainer.
+            Padding = new MarginPadding(2);
 
-                InternalChildren = new Drawable[]
-                {
-                    background = new Box
-                    {
-                        RelativeSizeAxes = Axes.Both,
-                        Colour = idleColour,
-                    },
-                    new Container
-                    {
-                        RelativeSizeAxes = Axes.Both,
-                        Padding = new MarginPadding(3),
-                        Child = new Container
-                        {
-                            RelativeSizeAxes = Axes.Both,
-                            CornerRadius = 4,
-                            Masking = true,
-                            Children = new Drawable[]
-                            {
-                                new Box
-                                {
-                                    RelativeSizeAxes = Axes.Both,
-                                    Colour = colourProvider.Background6,
-                                },
-                                new SliderPathPreview(entry)
-                                {
-                                    RelativeSizeAxes = Axes.Both,
-                                },
-                            }
-                        },
-                    },
-                };
-            }
-            else
+            InternalChildren = new Drawable[]
             {
-                // Normal mode: full-width card with preview + name/details.
-                RelativeSizeAxes = Axes.X;
-                Height = 70;
-
-                InternalChildren = new Drawable[]
+                background = new Box
                 {
-                    background = new Box
+                    RelativeSizeAxes = Axes.Both,
+                    Colour = idleColour,
+                },
+                new Container
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    Padding = new MarginPadding(3),
+                    Child = new Container
                     {
                         RelativeSizeAxes = Axes.Both,
-                        Colour = idleColour,
-                    },
-                    new GridContainer
-                    {
-                        RelativeSizeAxes = Axes.Both,
-                        Padding = new MarginPadding(4),
-                        ColumnDimensions = new[]
+                        CornerRadius = 4,
+                        Masking = true,
+                        Children = new Drawable[]
                         {
-                            new Dimension(GridSizeMode.Absolute, 62),
-                            new Dimension(),
-                        },
-                        Content = new[]
-                        {
-                            new Drawable[]
+                            new Box
                             {
-                                new Container
-                                {
-                                    RelativeSizeAxes = Axes.Both,
-                                    CornerRadius = 4,
-                                    Masking = true,
-                                    Children = new Drawable[]
-                                    {
-                                        new Box
-                                        {
-                                            RelativeSizeAxes = Axes.Both,
-                                            Colour = colourProvider.Background6,
-                                        },
-                                        new SliderPathPreview(entry)
-                                        {
-                                            RelativeSizeAxes = Axes.Both,
-                                        },
-                                    }
-                                },
-                                new FillFlowContainer
-                                {
-                                    RelativeSizeAxes = Axes.X,
-                                    AutoSizeAxes = Axes.Y,
-                                    Anchor = Anchor.CentreLeft,
-                                    Origin = Anchor.CentreLeft,
-                                    Padding = new MarginPadding { Left = 8 },
-                                    Direction = FillDirection.Vertical,
-                                    Spacing = new Vector2(0, 2),
-                                    Children = new Drawable[]
-                                    {
-                                        new TruncatingSpriteText
-                                        {
-                                            Text = entry.Name,
-                                            Font = OsuFont.GetFont(size: 14, weight: FontWeight.SemiBold),
-                                            RelativeSizeAxes = Axes.X,
-                                        },
-                                        new OsuSpriteText
-                                        {
-                                            Text = $"{entry.ControlPoints.Count} points, ×{entry.RepeatCount + 1}",
-                                            Font = OsuFont.GetFont(size: 11),
-                                            Colour = colourProvider.Light4,
-                                        },
-                                    }
-                                },
-                            }
+                                RelativeSizeAxes = Axes.Both,
+                                Colour = colourProvider.Background6,
+                            },
+                            new SliderPathPreview(entry)
+                            {
+                                RelativeSizeAxes = Axes.Both,
+                            },
                         }
-                    }
-                };
-            }
+                    },
+                },
+            };
         }
 
         protected override bool OnHover(HoverEvent e)
@@ -200,19 +121,40 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
 
         #region Drag support
 
+        private Drawable? dragProxy;
+
         protected override bool OnDragStart(DragStartEvent e)
         {
             isDragging = true;
 
-            // Visual feedback: lift the card up with scale + reduce opacity.
-            this.ScaleTo(1.03f, 200, Easing.OutQuint);
-            this.FadeTo(0.7f, 100);
-            background.FadeColour(hoverColour, 100);
+            // Visual feedback: reduce opacity of the original in the grid.
+            this.FadeTo(0.4f, 100);
 
             // Notify the panel that a drag is starting.
             var panel = findPanel();
             if (panel != null)
+            {
                 panel.DraggedEntry = entry;
+
+                var cloneCard = new SliderGalleryEntryCard(entry);
+                cloneCard.OnLoadComplete += d => 
+                {
+                    d.RelativeSizeAxes = Axes.X;
+                    d.Width = 1f;
+                };
+
+                dragProxy = new Container
+                {
+                    Size = this.DrawSize,
+                    Origin = Anchor.Centre,
+                    Alpha = 0.9f,
+                    Scale = new Vector2(1.05f),
+                    Child = cloneCard
+                };
+
+                panel.AddDragProxy(dragProxy);
+                panel.UpdateDragProxyPosition(dragProxy, e.ScreenSpaceMousePosition);
+            }
 
             return true;
         }
@@ -221,9 +163,13 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         {
             base.OnDrag(e);
 
-            // Update folder header highlighting.
             var panel = findPanel();
-            panel?.UpdateDragHighlight(e.ScreenSpaceMousePosition);
+            if (panel != null)
+            {
+                panel.UpdateDragHighlight(e.ScreenSpaceMousePosition);
+                if (dragProxy != null)
+                    panel.UpdateDragProxyPosition(dragProxy, e.ScreenSpaceMousePosition);
+            }
         }
 
         protected override void OnDragEnd(DragEndEvent e)
@@ -231,14 +177,18 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             isDragging = false;
 
             // Animate back to normal.
-            this.ScaleTo(1f, 300, Easing.OutQuint);
             this.FadeTo(1f, 200, Easing.OutQuint);
-            background.FadeColour(IsHovered ? hoverColour : idleColour, 200, Easing.OutQuint);
 
             var panel = findPanel();
 
             if (panel != null)
             {
+                if (dragProxy != null)
+                {
+                    panel.RemoveDragProxy(dragProxy);
+                    dragProxy = null;
+                }
+
                 panel.HandleDrop(entry, e);
                 panel.ClearDragHighlight();
                 panel.DraggedEntry = null;
@@ -250,11 +200,9 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         protected override void Update()
         {
             base.Update();
-            if (compact)
-            {
-                // Maintain a 1:1 aspect ratio based on dynamically calculated width.
-                Height = DrawWidth;
-            }
+            
+            // Maintain a 1:1 aspect ratio based on dynamically calculated width.
+            Height = DrawWidth;
         }
 
         private SliderGalleryPanel? findPanel()

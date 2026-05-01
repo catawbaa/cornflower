@@ -127,6 +127,18 @@ namespace osu.Game.Graphics.UserInterface
             base.OnHoverLost(e);
         }
 
+        protected override bool OnClick(ClickEvent e)
+        {
+            if (Item.Items.Count > 0 && Item.Action.Value != null)
+            {
+                Item.Action.Value.Invoke();
+                GetContainingInputManager()?.ChangeFocus(null);
+                return true;
+            }
+
+            return base.OnClick(e);
+        }
+
         private void updateState()
         {
             hoverClickSounds.Enabled.Value = IsActionable;

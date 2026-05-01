@@ -14,7 +14,7 @@ using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Input.Events;
-using osu.Game.Configuration;
+
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Cursor;
@@ -40,6 +40,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
 
         private FillFlowContainer cardContainer = null!;
         private OsuScrollContainer scrollContainer = null!;
+        private Container dragProxyContainer = null!;
 
         [Resolved]
         private SliderGalleryStorage galleryStorage { get; set; } = null!;
@@ -58,48 +59,54 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         /// </summary>
         private readonly HashSet<Guid> expandedFolders = new HashSet<Guid>();
 
-        /// <summary>
-        /// Whether compact mode is enabled (driven by editor config).
-        /// </summary>
-        private readonly Bindable<bool> compactMode = new Bindable<bool>();
+        private Guid? folderToEditNext;
+
 
         /// <summary>
         /// The entry currently being dragged, if any.
         /// </summary>
         internal SliderGalleryEntry? DraggedEntry { get; set; }
 
+        private OverlayColourProvider colourProvider = null!;
+
         [BackgroundDependencyLoader]
-        private void load(OverlayColourProvider colourProvider, OsuConfigManager config)
+        private void load(OverlayColourProvider colourProvider)
         {
+            this.colourProvider = colourProvider;
+
             RelativeSizeAxes = Axes.X;
             Height = 300;
 
-            config.BindWith(OsuSetting.EditorGalleryCompactMode, compactMode);
-
             InternalChildren = new Drawable[]
             {
-                new Box
+                new OsuContextMenuContainer
                 {
                     RelativeSizeAxes = Axes.Both,
-                    Colour = colourProvider.Background5,
-                },
-                scrollContainer = new OsuScrollContainer
-                {
-                    RelativeSizeAxes = Axes.Both,
-                    Child = new OsuContextMenuContainer
+                    Children = new Drawable[]
                     {
-                        RelativeSizeAxes = Axes.X,
-                        AutoSizeAxes = Axes.Y,
-                        Child = cardContainer = new FillFlowContainer
+                        new BackgroundContextMenuArea
                         {
-                            RelativeSizeAxes = Axes.X,
-                            AutoSizeAxes = Axes.Y,
-                            Direction = FillDirection.Vertical,
-                            Spacing = new Vector2(0, 4),
-                            Padding = new MarginPadding { Horizontal = 6, Vertical = 6 },
+                            RelativeSizeAxes = Axes.Both,
+                            OnRequestAddFolder = addFolder
                         },
-                    },
+                        scrollContainer = new OsuScrollContainer
+                        {
+                            RelativeSizeAxes = Axes.Both,
+                            Child = cardContainer = new FillFlowContainer
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Direction = FillDirection.Full,
+                                Spacing = Vector2.Zero,
+                                Padding = new MarginPadding { Horizontal = 6, Vertical = 6 },
+                            },
+                        }
+                    }
                 },
+                dragProxyContainer = new Container
+                {
+                    RelativeSizeAxes = Axes.Both,
+                }
             };
 
             refreshEntries();
@@ -109,54 +116,27 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         {
             base.LoadComplete();
             galleryStorage.EntriesChanged += () => Scheduler.AddOnce(refreshEntries);
-            compactMode.BindValueChanged(_ => Scheduler.AddOnce(refreshEntries));
         }
 
         private void refreshEntries()
         {
             cardContainer.Clear();
 
-            bool isCompact = compactMode.Value;
-
-
-
-            // Adjust the flow direction, spacing and padding based on view mode.
-            if (isCompact)
-            {
-                cardContainer.Direction = FillDirection.Full;
-                cardContainer.Spacing = Vector2.Zero;
-                cardContainer.Padding = new MarginPadding
-                {
-                    Horizontal = content_padding,
-                    Vertical = content_padding,
-                };
-            }
-            else
-            {
-                cardContainer.Direction = FillDirection.Vertical;
-                cardContainer.Spacing = new Vector2(0, 4);
-                cardContainer.Padding = new MarginPadding
-                {
-                    Horizontal = content_padding,
-                    Vertical = content_padding,
-                };
-            }
-
             var folders = galleryStorage.GetFolders();
             var rootEntries = galleryStorage.GetAll();
 
-            // "Add Folder" button at the top.
-            cardContainer.Add(new AddFolderButton
-            {
-                OnRequestAdd = addFolder,
-                Margin = new MarginPadding { Bottom = 2 },
-            });
-
             // Render folders.
-            foreach (var folder in folders)
+            var allFolders = new List<SliderGalleryFolder>(folders);
+            if (rootEntries.Count > 0)
             {
+                allFolders.Add(new SliderGalleryFolder { Id = Guid.Empty, Name = "Uncategorized" });
+            }
+
+            foreach (var folder in allFolders)
+            {
+                bool isUncategorized = folder.Id == Guid.Empty;
                 bool isExpanded = expandedFolders.Contains(folder.Id);
-                var entriesInFolder = galleryStorage.GetEntriesInFolder(folder.Id);
+                var entriesInFolder = isUncategorized ? rootEntries : galleryStorage.GetEntriesInFolder(folder.Id);
 
                 // In compact mode, folder headers still span the full width.
                 var header = new SliderGalleryFolderHeader(folder, isExpanded, entriesInFolder.Count)
@@ -166,68 +146,70 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
                     OnRequestRename = requestRenameFolder,
                 };
 
-                if (isCompact)
+                if (folder.Id == folderToEditNext)
                 {
-                    // Wrap the header in a full-width container so it breaks the flow.
-                    cardContainer.Add(new Container
-                    {
-                        RelativeSizeAxes = Axes.X,
-                        AutoSizeAxes = Axes.Y,
-                        Child = header,
-                    });
+                    Schedule(() => header.BeginEditing());
+                    folderToEditNext = null;
                 }
-                else
+
+
+
+                var folderFlow = new FillFlowContainer
                 {
-                    cardContainer.Add(header);
-                }
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Direction = FillDirection.Vertical,
+                    Children = new Drawable[] { header }
+                };
 
                 if (isExpanded)
                 {
+                    var contentFlow = new FillFlowContainer
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        AutoSizeAxes = Axes.Y,
+                        Direction = FillDirection.Full,
+                        Spacing = Vector2.Zero,
+                        Padding = new MarginPadding(6),
+                    };
+
                     foreach (var entry in entriesInFolder)
                     {
-                        if (isCompact)
+                        contentFlow.Add(new SliderGalleryEntryCard(entry)
                         {
-                            cardContainer.Add(new SliderGalleryEntryCard(entry, compact: true)
-                            {
-                                OnPlace = placeSlider,
-                                OnRequestDelete = requestDeleteEntry,
-                                OnRequestRename = requestRenameEntry,
-                                OnRequestMoveToFolder = moveEntryToFolder,
-                            });
-                        }
-                        else
-                        {
-                            cardContainer.Add(new Container
-                            {
-                                RelativeSizeAxes = Axes.X,
-                                AutoSizeAxes = Axes.Y,
-                                Padding = new MarginPadding { Left = 16 },
-                                Child = new SliderGalleryEntryCard(entry)
-                                {
-                                    OnPlace = placeSlider,
-                                    OnRequestDelete = requestDeleteEntry,
-                                    OnRequestRename = requestRenameEntry,
-                                    OnRequestMoveToFolder = moveEntryToFolder,
-                                },
-                            });
-                        }
+                            OnPlace = placeSlider,
+                            OnRequestDelete = requestDeleteEntry,
+                            OnRequestRename = requestRenameEntry,
+                            OnRequestMoveToFolder = moveEntryToFolder,
+                        });
                     }
-                }
-            }
 
-            // Render ungrouped entries.
-            if (rootEntries.Count > 0)
-            {
-                foreach (var entry in rootEntries)
-                {
-                    cardContainer.Add(new SliderGalleryEntryCard(entry, compact: isCompact)
+                    folderFlow.Add(new Container
                     {
-                        OnPlace = placeSlider,
-                        OnRequestDelete = requestDeleteEntry,
-                        OnRequestRename = requestRenameEntry,
-                        OnRequestMoveToFolder = moveEntryToFolder,
+                        RelativeSizeAxes = Axes.X,
+                        AutoSizeAxes = Axes.Y,
+                        Children = new Drawable[]
+                        {
+                            new BlockContextMenuBox
+                            {
+                                RelativeSizeAxes = Axes.Both,
+                                Colour = colourProvider.Background4,
+                            },
+                            contentFlow
+                        }
                     });
                 }
+
+                // Wrap the folder flow in a full-width container so it breaks the flow.
+                cardContainer.Add(new Container
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Margin = new MarginPadding { Top = 4 },
+                    Masking = true,
+                    CornerRadius = 4,
+                    Child = folderFlow,
+                });
             }
 
             // Show empty state only when there are no folders and no entries.
@@ -243,10 +225,11 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             }
         }
 
-        private void addFolder(string folderName)
+        private void addFolder()
         {
-            var folder = galleryStorage.AddFolder(folderName);
+            var folder = galleryStorage.AddFolder("New folder");
             expandedFolders.Add(folder.Id);
+            folderToEditNext = folder.Id;
         }
 
         private void toggleFolder(SliderGalleryFolder folder)
@@ -323,10 +306,16 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             // Check if we dropped onto a folder header.
             foreach (var child in cardContainer.Children)
             {
-                if (child is SliderGalleryFolderHeader header && header.ReceivePositionalInputAt(screenPos))
+                if (child is Container c && c.Children.Count == 1 && c.Children[0] is FillFlowContainer flow)
                 {
-                    galleryStorage.MoveToFolder(entry.Id, header.FolderId);
-                    return;
+                    foreach (var fChild in flow.Children)
+                    {
+                        if (fChild is SliderGalleryFolderHeader header && header.ReceivePositionalInputAt(screenPos))
+                        {
+                            galleryStorage.MoveToFolder(entry.Id, header.FolderId);
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -341,8 +330,14 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         {
             foreach (var child in cardContainer.Children)
             {
-                if (child is SliderGalleryFolderHeader header)
-                    header.IsDropTarget = header.ReceivePositionalInputAt(screenSpacePosition);
+                if (child is Container c && c.Children.Count == 1 && c.Children[0] is FillFlowContainer flow)
+                {
+                    foreach (var fChild in flow.Children)
+                    {
+                        if (fChild is SliderGalleryFolderHeader header)
+                            header.IsDropTarget = header.ReceivePositionalInputAt(screenSpacePosition);
+                    }
+                }
             }
         }
 
@@ -353,89 +348,58 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         {
             foreach (var child in cardContainer.Children)
             {
-                if (child is SliderGalleryFolderHeader header)
-                    header.IsDropTarget = false;
+                if (child is Container c && c.Children.Count == 1 && c.Children[0] is FillFlowContainer flow)
+                {
+                    foreach (var fChild in flow.Children)
+                    {
+                        if (fChild is SliderGalleryFolderHeader header)
+                            header.IsDropTarget = false;
+                    }
+                }
             }
         }
 
-        /// <summary>
-        /// A small button that creates a new folder when clicked.
-        /// </summary>
-        private partial class AddFolderButton : CompositeDrawable, IHasPopover
+        internal void AddDragProxy(Drawable proxy)
         {
-            public Action<string>? OnRequestAdd;
+            dragProxyContainer.Add(proxy);
+        }
 
-            private Box background = null!;
-            private Color4 idleColour;
-            private Color4 hoverColour;
+        internal void RemoveDragProxy(Drawable proxy)
+        {
+            dragProxyContainer.Remove(proxy, true);
+        }
+
+        internal void UpdateDragProxyPosition(Drawable proxy, Vector2 screenSpaceMousePosition)
+        {
+            proxy.Position = dragProxyContainer.ToLocalSpace(screenSpaceMousePosition);
+        }
+
+        private partial class BackgroundContextMenuArea : CompositeDrawable, IHasContextMenu
+        {
+            public Action? OnRequestAddFolder;
+
+            public override bool HandlePositionalInput => true;
 
             [BackgroundDependencyLoader]
             private void load(OverlayColourProvider colourProvider)
             {
-                RelativeSizeAxes = Axes.X;
-                Height = 24;
-                CornerRadius = 4;
-                Masking = true;
-
-                idleColour = colourProvider.Background4;
-                hoverColour = colourProvider.Background3;
-
-                InternalChildren = new Drawable[]
+                InternalChild = new Box
                 {
-                    background = new Box
-                    {
-                        RelativeSizeAxes = Axes.Both,
-                        Colour = idleColour,
-                    },
-                    new FillFlowContainer
-                    {
-                        Anchor = Anchor.Centre,
-                        Origin = Anchor.Centre,
-                        AutoSizeAxes = Axes.Both,
-                        Direction = FillDirection.Horizontal,
-                        Spacing = new Vector2(4, 0),
-                        Children = new Drawable[]
-                        {
-                            new SpriteIcon
-                            {
-                                Anchor = Anchor.CentreLeft,
-                                Origin = Anchor.CentreLeft,
-                                Size = new Vector2(10),
-                                Icon = FontAwesome.Solid.FolderPlus,
-                            },
-                            new OsuSpriteText
-                            {
-                                Anchor = Anchor.CentreLeft,
-                                Origin = Anchor.CentreLeft,
-                                Text = "Add Folder",
-                                Font = OsuFont.GetFont(size: 11, weight: FontWeight.SemiBold),
-                            },
-                        }
-                    }
+                    RelativeSizeAxes = Axes.Both,
+                    Colour = colourProvider.Background5,
                 };
             }
 
-            protected override bool OnHover(HoverEvent e)
+            public MenuItem[] ContextMenuItems => new MenuItem[]
             {
-                background.FadeColour(hoverColour, 200, Easing.OutQuint);
-                return true;
-            }
-
-            protected override void OnHoverLost(HoverLostEvent e)
-            {
-                background.FadeColour(idleColour, 200, Easing.OutQuint);
-            }
-
-            protected override bool OnClick(ClickEvent e)
-            {
-                this.ShowPopover();
-                return true;
-            }
-
-            public Popover GetPopover() => new CreateFolderPopover
-            {
-                OnCommit = name => OnRequestAdd?.Invoke(name),
+                new OsuMenuItem("Add Folder", MenuItemType.Standard, () => OnRequestAddFolder?.Invoke())
             };
+        }
+
+        private partial class BlockContextMenuBox : Box, IHasContextMenu
+        {
+            public override bool HandlePositionalInput => true;
+            public MenuItem[] ContextMenuItems => Array.Empty<MenuItem>();
         }
     }
 }

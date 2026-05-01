@@ -383,15 +383,15 @@ namespace osu.Game.Rulesets.Osu.Edit
             if (canMerge(selectedMergeableObjects))
                 yield return new OsuMenuItem("Merge selection", MenuItemType.Destructive, mergeSelection);
 
-            // Show "Add to Slider Gallery" when exactly one slider is selected.
+            // Show "Add to gallery" when exactly one slider is selected.
             if (SelectedItems.Count == 1 && SelectedItems.OfType<Slider>().Any())
             {
                 var folders = sliderGalleryStorage.GetFolders();
 
                 if (folders.Count > 0)
                 {
-                    // When folders exist, show a submenu with folder options.
-                    yield return new OsuMenuItem("Add to Slider Gallery")
+                    // The button itself adds to Uncategorized (root), but hovering it opens the folder list.
+                    yield return new OsuMenuItem("Add to gallery", MenuItemType.Standard, () => addSliderToGallery(null))
                     {
                         Items = getSliderGallerySubmenuItems(folders).ToArray(),
                     };
@@ -399,7 +399,7 @@ namespace osu.Game.Rulesets.Osu.Edit
                 else
                 {
                     // No folders — just add directly to root.
-                    yield return new OsuMenuItem("Add to Slider Gallery", MenuItemType.Standard, () => addSliderToGallery(null));
+                    yield return new OsuMenuItem("Add to gallery", MenuItemType.Standard, () => addSliderToGallery(null));
                 }
             }
         }
