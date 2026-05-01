@@ -3,7 +3,7 @@ name: Release Binaries
 on:
   push:
     tags:
-      - 'slider-gallery-*'
+      - 'cornflower*'
 
 jobs:
   build:
