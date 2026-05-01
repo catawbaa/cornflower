@@ -15,6 +15,7 @@ using osu.Framework.Input.Events;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
+using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Overlays;
 using osuTK;
@@ -64,6 +65,10 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         private Color4 idleColour;
         private Color4 hoverColour;
         private Color4 dropTargetColour;
+        private TruncatingSpriteText folderNameText = null!;
+
+        [Resolved(canBeNull: true)]
+        private IExpandingContainer? expandingContainer { get; set; }
 
         public SliderGalleryFolderHeader(SliderGalleryFolder folder, bool expanded, int entryCount)
         {
@@ -73,12 +78,13 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         }
 
         [BackgroundDependencyLoader]
-        private void load(OverlayColourProvider colourProvider)
+        private void load(OverlayColourProvider colourProvider, OsuColour colours)
         {
             RelativeSizeAxes = Axes.X;
             Height = 28;
             CornerRadius = 4;
             Masking = true;
+            Margin = new MarginPadding { Top = 4 };
 
             idleColour = colourProvider.Background3;
             hoverColour = colourProvider.Background2;
@@ -91,42 +97,94 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
                     RelativeSizeAxes = Axes.Both,
                     Colour = idleColour,
                 },
-                new FillFlowContainer
+                new GridContainer
                 {
                     RelativeSizeAxes = Axes.Both,
-                    Direction = FillDirection.Horizontal,
                     Padding = new MarginPadding { Horizontal = 8 },
-                    Spacing = new Vector2(6, 0),
-                    Children = new Drawable[]
+                    ColumnDimensions = new[]
                     {
-                        chevron = new SpriteIcon
+                        new Dimension(GridSizeMode.AutoSize),
+                        new Dimension(),
+                        new Dimension(GridSizeMode.AutoSize),
+                    },
+                    Content = new[]
+                    {
+                        new Drawable[]
                         {
-                            Anchor = Anchor.CentreLeft,
-                            Origin = Anchor.CentreLeft,
-                            Size = new Vector2(10),
-                            Icon = expanded ? FontAwesome.Solid.ChevronDown : FontAwesome.Solid.ChevronRight,
-                            Colour = colourProvider.Light4,
-                        },
-                        new SpriteIcon
-                        {
-                            Anchor = Anchor.CentreLeft,
-                            Origin = Anchor.CentreLeft,
-                            Size = new Vector2(12),
-                            Icon = FontAwesome.Solid.Folder,
-                            Colour = colourProvider.Light3,
-                        },
-                        new TruncatingSpriteText
-                        {
-                            Anchor = Anchor.CentreLeft,
-                            Origin = Anchor.CentreLeft,
-                            Text = $"{folder.Name} ({entryCount})",
-                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
-                            RelativeSizeAxes = Axes.X,
-                            Width = 0.7f,
-                        },
+                            new FillFlowContainer
+                            {
+                                Anchor = Anchor.CentreLeft,
+                                Origin = Anchor.CentreLeft,
+                                AutoSizeAxes = Axes.Both,
+                                Direction = FillDirection.Horizontal,
+                                Spacing = new Vector2(6, 0),
+                                Margin = new MarginPadding { Right = 6 },
+                                Children = new Drawable[]
+                                {
+                                    chevron = new SpriteIcon
+                                    {
+                                        Anchor = Anchor.CentreLeft,
+                                        Origin = Anchor.CentreLeft,
+                                        Size = new Vector2(10),
+                                        Icon = expanded ? FontAwesome.Solid.ChevronDown : FontAwesome.Solid.ChevronRight,
+                                        Colour = colourProvider.Light4,
+                                    },
+                                    new SpriteIcon
+                                    {
+                                        Anchor = Anchor.CentreLeft,
+                                        Origin = Anchor.CentreLeft,
+                                        Size = new Vector2(12),
+                                        Icon = FontAwesome.Solid.Folder,
+                                        Colour = colourProvider.Light3,
+                                    },
+                                }
+                            },
+                            folderNameText = new TruncatingSpriteText
+                            {
+                                Anchor = Anchor.CentreLeft,
+                                Origin = Anchor.CentreLeft,
+                                Text = folder.Name,
+                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                RelativeSizeAxes = Axes.X,
+                            },
+                            new CircularContainer
+                            {
+                                Anchor = Anchor.CentreRight,
+                                Origin = Anchor.CentreRight,
+                                AutoSizeAxes = Axes.Both,
+                                Masking = true,
+                                Children = new Drawable[]
+                                {
+                                    new Box
+                                    {
+                                        RelativeSizeAxes = Axes.Both,
+                                        Colour = colours.Orange1,
+                                    },
+                                    new OsuSpriteText
+                                    {
+                                        Anchor = Anchor.Centre,
+                                        Origin = Anchor.Centre,
+                                        Text = entryCount.ToString(),
+                                        Font = OsuFont.GetFont(size: 10, weight: FontWeight.Bold),
+                                        Colour = Color4.Black,
+                                        Margin = new MarginPadding { Horizontal = 6, Vertical = 1 },
+                                    }
+                                }
+                            }
+                        }
                     }
-                },
+                }
             };
+        }
+
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+
+            expandingContainer?.Expanded.BindValueChanged(containerExpanded =>
+            {
+                folderNameText.FadeTo(containerExpanded.NewValue ? 1 : 0, 200, Easing.OutQuint);
+            }, true);
         }
 
         protected override bool OnHover(HoverEvent e)

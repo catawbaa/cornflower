@@ -35,15 +35,17 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         public Action<SliderGalleryEntry, Guid?>? OnRequestMoveToFolder;
 
         private readonly SliderGalleryEntry entry;
+        private readonly bool compact;
 
         private Box background = null!;
         private Color4 idleColour;
         private Color4 hoverColour;
         private bool isDragging;
 
-        public SliderGalleryEntryCard(SliderGalleryEntry entry)
+        public SliderGalleryEntryCard(SliderGalleryEntry entry, bool compact = false)
         {
             this.entry = entry;
+            this.compact = compact;
         }
 
         [Resolved]
@@ -52,81 +54,126 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         [BackgroundDependencyLoader]
         private void load(OverlayColourProvider colourProvider)
         {
-            RelativeSizeAxes = Axes.X;
-            Height = 70;
             CornerRadius = 6;
             Masking = true;
 
             idleColour = colourProvider.Background4;
             hoverColour = colourProvider.Background3;
 
-            InternalChildren = new Drawable[]
+            if (compact)
             {
-                background = new Box
+                // Compact mode: just the slider preview as a square thumbnail.
+                RelativeSizeAxes = Axes.X;
+                Width = 0.33333f;
+                // Add inner padding so items don't visually touch each other in FillFlowContainer.
+                Padding = new MarginPadding(2);
+
+                InternalChildren = new Drawable[]
                 {
-                    RelativeSizeAxes = Axes.Both,
-                    Colour = idleColour,
-                },
-                new GridContainer
-                {
-                    RelativeSizeAxes = Axes.Both,
-                    Padding = new MarginPadding(4),
-                    ColumnDimensions = new[]
+                    background = new Box
                     {
-                        new Dimension(GridSizeMode.Absolute, 62),
-                        new Dimension(),
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = idleColour,
                     },
-                    Content = new[]
+                    new Container
                     {
-                        new Drawable[]
+                        RelativeSizeAxes = Axes.Both,
+                        Padding = new MarginPadding(3),
+                        Child = new Container
                         {
-                            new Container
+                            RelativeSizeAxes = Axes.Both,
+                            CornerRadius = 4,
+                            Masking = true,
+                            Children = new Drawable[]
                             {
-                                RelativeSizeAxes = Axes.Both,
-                                CornerRadius = 4,
-                                Masking = true,
-                                Children = new Drawable[]
+                                new Box
                                 {
-                                    new Box
-                                    {
-                                        RelativeSizeAxes = Axes.Both,
-                                        Colour = colourProvider.Background6,
-                                    },
-                                    new SliderPathPreview(entry)
-                                    {
-                                        RelativeSizeAxes = Axes.Both,
-                                    },
-                                }
-                            },
-                            new FillFlowContainer
+                                    RelativeSizeAxes = Axes.Both,
+                                    Colour = colourProvider.Background6,
+                                },
+                                new SliderPathPreview(entry)
+                                {
+                                    RelativeSizeAxes = Axes.Both,
+                                },
+                            }
+                        },
+                    },
+                };
+            }
+            else
+            {
+                // Normal mode: full-width card with preview + name/details.
+                RelativeSizeAxes = Axes.X;
+                Height = 70;
+
+                InternalChildren = new Drawable[]
+                {
+                    background = new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = idleColour,
+                    },
+                    new GridContainer
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Padding = new MarginPadding(4),
+                        ColumnDimensions = new[]
+                        {
+                            new Dimension(GridSizeMode.Absolute, 62),
+                            new Dimension(),
+                        },
+                        Content = new[]
+                        {
+                            new Drawable[]
                             {
-                                RelativeSizeAxes = Axes.X,
-                                AutoSizeAxes = Axes.Y,
-                                Anchor = Anchor.CentreLeft,
-                                Origin = Anchor.CentreLeft,
-                                Padding = new MarginPadding { Left = 8 },
-                                Direction = FillDirection.Vertical,
-                                Spacing = new Vector2(0, 2),
-                                Children = new Drawable[]
+                                new Container
                                 {
-                                    new TruncatingSpriteText
+                                    RelativeSizeAxes = Axes.Both,
+                                    CornerRadius = 4,
+                                    Masking = true,
+                                    Children = new Drawable[]
                                     {
-                                        Text = entry.Name,
-                                        Font = OsuFont.GetFont(size: 14, weight: FontWeight.SemiBold),
-                                        RelativeSizeAxes = Axes.X,
-                                    },
-                                    new OsuSpriteText
+                                        new Box
+                                        {
+                                            RelativeSizeAxes = Axes.Both,
+                                            Colour = colourProvider.Background6,
+                                        },
+                                        new SliderPathPreview(entry)
+                                        {
+                                            RelativeSizeAxes = Axes.Both,
+                                        },
+                                    }
+                                },
+                                new FillFlowContainer
+                                {
+                                    RelativeSizeAxes = Axes.X,
+                                    AutoSizeAxes = Axes.Y,
+                                    Anchor = Anchor.CentreLeft,
+                                    Origin = Anchor.CentreLeft,
+                                    Padding = new MarginPadding { Left = 8 },
+                                    Direction = FillDirection.Vertical,
+                                    Spacing = new Vector2(0, 2),
+                                    Children = new Drawable[]
                                     {
-                                        Text = $"{entry.ControlPoints.Count} points, ×{entry.RepeatCount + 1}",
-                                        Font = OsuFont.GetFont(size: 11),
-                                        Colour = colourProvider.Light4,
-                                    },
-                                }
-                            },
+                                        new TruncatingSpriteText
+                                        {
+                                            Text = entry.Name,
+                                            Font = OsuFont.GetFont(size: 14, weight: FontWeight.SemiBold),
+                                            RelativeSizeAxes = Axes.X,
+                                        },
+                                        new OsuSpriteText
+                                        {
+                                            Text = $"{entry.ControlPoints.Count} points, ×{entry.RepeatCount + 1}",
+                                            Font = OsuFont.GetFont(size: 11),
+                                            Colour = colourProvider.Light4,
+                                        },
+                                    }
+                                },
+                            }
                         }
                     }
-                }
-            };
+                };
+            }
         }
 
         protected override bool OnHover(HoverEvent e)
@@ -198,6 +245,16 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             }
 
             base.OnDragEnd(e);
+        }
+
+        protected override void Update()
+        {
+            base.Update();
+            if (compact)
+            {
+                // Maintain a 1:1 aspect ratio based on dynamically calculated width.
+                Height = DrawWidth;
+            }
         }
 
         private SliderGalleryPanel? findPanel()

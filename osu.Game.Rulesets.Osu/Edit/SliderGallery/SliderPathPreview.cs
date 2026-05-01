@@ -34,7 +34,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
     /// </remarks>
     public partial class SliderPathPreview : CompositeDrawable
     {
-        private static readonly Color4 accent_colour = new Color4(0.35f, 0.75f, 0.4f, 1f);
+        private static readonly Color4 accent_colour = Color4Extensions.FromHex("#4CB290");
 
         private readonly SliderGalleryEntry entry;
 

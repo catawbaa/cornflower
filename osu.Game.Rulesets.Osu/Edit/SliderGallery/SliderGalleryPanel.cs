@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -13,6 +14,7 @@ using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Input.Events;
+using osu.Game.Configuration;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Cursor;
@@ -32,6 +34,10 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
     /// </summary>
     public partial class SliderGalleryPanel : CompositeDrawable
     {
+        private const float compact_spacing = 4;
+        private const int compact_columns = 3;
+        private const float content_padding = 6;
+
         private FillFlowContainer cardContainer = null!;
         private OsuScrollContainer scrollContainer = null!;
 
@@ -53,15 +59,22 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         private readonly HashSet<Guid> expandedFolders = new HashSet<Guid>();
 
         /// <summary>
+        /// Whether compact mode is enabled (driven by editor config).
+        /// </summary>
+        private readonly Bindable<bool> compactMode = new Bindable<bool>();
+
+        /// <summary>
         /// The entry currently being dragged, if any.
         /// </summary>
         internal SliderGalleryEntry? DraggedEntry { get; set; }
 
         [BackgroundDependencyLoader]
-        private void load(OverlayColourProvider colourProvider)
+        private void load(OverlayColourProvider colourProvider, OsuConfigManager config)
         {
             RelativeSizeAxes = Axes.X;
             Height = 300;
+
+            config.BindWith(OsuSetting.EditorGalleryCompactMode, compactMode);
 
             InternalChildren = new Drawable[]
             {
@@ -96,11 +109,38 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
         {
             base.LoadComplete();
             galleryStorage.EntriesChanged += () => Scheduler.AddOnce(refreshEntries);
+            compactMode.BindValueChanged(_ => Scheduler.AddOnce(refreshEntries));
         }
 
         private void refreshEntries()
         {
             cardContainer.Clear();
+
+            bool isCompact = compactMode.Value;
+
+
+
+            // Adjust the flow direction, spacing and padding based on view mode.
+            if (isCompact)
+            {
+                cardContainer.Direction = FillDirection.Full;
+                cardContainer.Spacing = Vector2.Zero;
+                cardContainer.Padding = new MarginPadding
+                {
+                    Horizontal = content_padding,
+                    Vertical = content_padding,
+                };
+            }
+            else
+            {
+                cardContainer.Direction = FillDirection.Vertical;
+                cardContainer.Spacing = new Vector2(0, 4);
+                cardContainer.Padding = new MarginPadding
+                {
+                    Horizontal = content_padding,
+                    Vertical = content_padding,
+                };
+            }
 
             var folders = galleryStorage.GetFolders();
             var rootEntries = galleryStorage.GetAll();
@@ -109,6 +149,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             cardContainer.Add(new AddFolderButton
             {
                 OnRequestAdd = addFolder,
+                Margin = new MarginPadding { Bottom = 2 },
             });
 
             // Render folders.
@@ -117,6 +158,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
                 bool isExpanded = expandedFolders.Contains(folder.Id);
                 var entriesInFolder = galleryStorage.GetEntriesInFolder(folder.Id);
 
+                // In compact mode, folder headers still span the full width.
                 var header = new SliderGalleryFolderHeader(folder, isExpanded, entriesInFolder.Count)
                 {
                     OnToggleExpanded = toggleFolder,
@@ -124,25 +166,51 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
                     OnRequestRename = requestRenameFolder,
                 };
 
-                cardContainer.Add(header);
+                if (isCompact)
+                {
+                    // Wrap the header in a full-width container so it breaks the flow.
+                    cardContainer.Add(new Container
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        AutoSizeAxes = Axes.Y,
+                        Child = header,
+                    });
+                }
+                else
+                {
+                    cardContainer.Add(header);
+                }
 
                 if (isExpanded)
                 {
                     foreach (var entry in entriesInFolder)
                     {
-                        cardContainer.Add(new Container
+                        if (isCompact)
                         {
-                            RelativeSizeAxes = Axes.X,
-                            AutoSizeAxes = Axes.Y,
-                            Padding = new MarginPadding { Left = 16 },
-                            Child = new SliderGalleryEntryCard(entry)
+                            cardContainer.Add(new SliderGalleryEntryCard(entry, compact: true)
                             {
                                 OnPlace = placeSlider,
                                 OnRequestDelete = requestDeleteEntry,
                                 OnRequestRename = requestRenameEntry,
                                 OnRequestMoveToFolder = moveEntryToFolder,
-                            },
-                        });
+                            });
+                        }
+                        else
+                        {
+                            cardContainer.Add(new Container
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Padding = new MarginPadding { Left = 16 },
+                                Child = new SliderGalleryEntryCard(entry)
+                                {
+                                    OnPlace = placeSlider,
+                                    OnRequestDelete = requestDeleteEntry,
+                                    OnRequestRename = requestRenameEntry,
+                                    OnRequestMoveToFolder = moveEntryToFolder,
+                                },
+                            });
+                        }
                     }
                 }
             }
@@ -152,7 +220,7 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             {
                 foreach (var entry in rootEntries)
                 {
-                    cardContainer.Add(new SliderGalleryEntryCard(entry)
+                    cardContainer.Add(new SliderGalleryEntryCard(entry, compact: isCompact)
                     {
                         OnPlace = placeSlider,
                         OnRequestDelete = requestDeleteEntry,
