@@ -273,9 +273,9 @@ namespace osu.Game.Rulesets.Osu.Edit.SliderGallery
             private void load()
             {
                 BackgroundUnfocused = Color4.Transparent;
-                BackgroundFocused = Color4.Transparent;
-                BackgroundCommit = Color4.Transparent;
+                BackgroundFocused = Color4.Black.Opacity(0.5f);
                 BorderThickness = 0;
+                CornerRadius = 4;
             }
 
             protected override void OnFocus(FocusEvent e)
