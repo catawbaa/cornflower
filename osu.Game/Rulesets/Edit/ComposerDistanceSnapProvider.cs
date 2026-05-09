@@ -289,9 +289,9 @@ namespace osu.Game.Rulesets.Edit
         {
             double actualDuration = snapReferenceTime + DistanceToDuration(distance, snapReferenceTime, withVelocity);
 
-            double snappedTime = beatSnapProvider.SnapTime(actualDuration, snapReferenceTime);
+            double snappedTime = beatSnapProvider.SnapTime(actualDuration);
 
-            double beatLength = beatSnapProvider.GetBeatLengthAtTime(snapReferenceTime);
+            double beatLength = beatSnapProvider.GetBeatLengthAtTime(snappedTime);
 
             // we don't want to exceed the actual duration and snap to a point in the future.
             // as we are snapping to beat length via SnapTime (which will round-to-nearest), check for snapping in the forward direction and reverse it.

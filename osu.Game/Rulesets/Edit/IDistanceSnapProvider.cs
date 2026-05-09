@@ -71,7 +71,7 @@ namespace osu.Game.Rulesets.Edit
         /// Depends on:
         /// <list type="bullet">
         /// <item>the <paramref name="distance"/> provided,</item>
-        /// <item>a <paramref name="snapReferenceTime"/> used to retrieve the beat length of the beatmap at that time,</item>
+        /// <item>a <paramref name="snapReferenceTime"/> used for converting between distance and duration,</item>
         /// <item>the slider velocity taken from <paramref name="withVelocity"/>,</item>
         /// <item>the beatmap's <see cref="IBeatmapDifficultyInfo.SliderMultiplier"/>,</item>,
         /// <item>the current beat divisor.</item>
