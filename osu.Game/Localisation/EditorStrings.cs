@@ -20,6 +20,11 @@ namespace osu.Game.Localisation
         public static LocalisableString WaveformOpacity => new TranslatableString(getKey(@"waveform_opacity"), @"Waveform opacity");
 
         /// <summary>
+        /// "Playfield Zoom"
+        /// </summary>
+        public static LocalisableString PlayfieldZoom => new TranslatableString(getKey(@"playfield_zoom"), @"Playfield Zoom");
+
+        /// <summary>
         /// "Show storyboard"
         /// </summary>
         public static LocalisableString ShowStoryboard => new TranslatableString(getKey(@"show_storyboard"), @"Show storyboard");

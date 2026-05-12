@@ -19,6 +19,7 @@ using osu.Framework.Input.Events;
 using osu.Framework.Platform;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
+using osu.Game.Configuration;
 using osu.Game.Graphics;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Rulesets.Edit;
@@ -83,6 +84,8 @@ namespace osu.Game.Rulesets.Osu.Edit
         [Cached]
         protected readonly FreehandSliderToolboxGroup FreehandSliderToolboxGroup = new FreehandSliderToolboxGroup();
 
+        private Bindable<float> playfieldZoom = null!;
+
         private SliderGalleryStorage sliderGalleryStorage = null!;
 
         protected override IReadOnlyDependencyContainer CreateChildDependencies(IReadOnlyDependencyContainer parent)
@@ -96,8 +99,10 @@ namespace osu.Game.Rulesets.Osu.Edit
         }
 
         [BackgroundDependencyLoader]
-        private void load()
+        private void load(OsuConfigManager config)
         {
+            playfieldZoom = config.GetBindable<float>(OsuSetting.EditorPlayfieldZoom);
+
             AddInternal(DistanceSnapProvider);
             DistanceSnapProvider.AttachToToolbox(RightToolbox);
 
@@ -293,8 +298,9 @@ namespace osu.Game.Rulesets.Osu.Edit
             Vector2 pos = positionSnapGrid.GetSnappedPosition(positionSnapGrid.ToLocalSpace(screenSpacePosition));
 
             // A grid which doesn't perfectly fit the playfield can produce a position that is outside of the playfield.
-            // We need to clamp the position to the playfield bounds to ensure that the snapped position is always in bounds.
-            pos = Vector2.Clamp(pos, Vector2.Zero, OsuPlayfield.BASE_SIZE);
+            // At full zoom, clamp the position to match the editor's regular in-bounds movement behaviour.
+            if (playfieldZoom.Value >= 1)
+                pos = Vector2.Clamp(pos, Vector2.Zero, OsuPlayfield.BASE_SIZE);
 
             var playfield = PlayfieldAtScreenSpacePosition(screenSpacePosition);
             return new SnapResult(positionSnapGrid.ToScreenSpace(pos), fallbackTime, playfield);

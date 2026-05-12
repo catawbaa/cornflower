@@ -91,6 +91,7 @@ namespace osu.Game.Rulesets.Edit
 
         private IBindable<bool> hasTiming;
         private Bindable<bool> autoSeekOnPlacement;
+        private Bindable<float> playfieldZoom;
         private readonly Bindable<bool> composerFocusMode = new Bindable<bool>();
 
         [CanBeNull]
@@ -110,6 +111,7 @@ namespace osu.Game.Rulesets.Edit
         private void load(OsuConfigManager config, [CanBeNull] Editor editor, ReadableKeyCombinationProvider keyCombinationProvider)
         {
             autoSeekOnPlacement = config.GetBindable<bool>(OsuSetting.EditorAutoSeekOnPlacement);
+            playfieldZoom = config.GetBindable<float>(OsuSetting.EditorPlayfieldZoom);
 
             if (editor != null)
                 composerFocusMode.BindTo(editor.ComposerFocusMode);
@@ -261,6 +263,8 @@ namespace osu.Game.Rulesets.Edit
                     }
                 },
             };
+
+            playfieldZoom.BindValueChanged(zoom => PlayfieldContentContainer.Scale = new Vector2(zoom.NewValue), true);
 
             toolboxCollection.Items = (CompositionTools.Prepend(new SelectTool()))
                                       .Select(t => new HitObjectCompositionToolButton(t, () => toolSelected(t)))
